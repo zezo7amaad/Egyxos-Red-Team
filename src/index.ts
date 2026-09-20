@@ -14,6 +14,7 @@ import { validateTarget } from "./scope.js";
 import { loadConfig, resolveStoragePath } from "./config.js";
 import { askGemini } from "./ai.js";
 import { getSecuritySkills } from "./skills.js";
+import { renderSecurityCurriculum } from "./training.js";
 
 function printHeader(): void {
   console.log("╔══════════════════════════════════════════════╗");
@@ -40,6 +41,7 @@ function printHelp(): void {
   console.log("  report generate [markdown|html|json]");
   console.log("  tools list");
   console.log("  skills list");
+  console.log("  skills curriculum");
   console.log("  ai ask <skill> <request>");
   console.log("  doctor");
   console.log("  --help");
@@ -165,7 +167,12 @@ function handleTools(): void {
   }
 }
 
-function handleSkills(): void {
+function handleSkills(args: string[] = []): void {
+  if (args[0] === "curriculum") {
+    console.log(renderSecurityCurriculum());
+    return;
+  }
+
   for (const skill of getSecuritySkills()) {
     console.log(`${skill.name} :: ${skill.description} :: ${skill.permissions.join(", ")}`);
   }
@@ -272,7 +279,7 @@ function main(): void {
       handleTools();
       break;
     case "skills":
-      handleSkills();
+      handleSkills(rest);
       break;
     case "ai":
       void handleAI(rest);

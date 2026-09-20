@@ -114,6 +114,7 @@ egyxos-redteam session resume <id>
 egyxos-redteam recon start
 egyxos-redteam tools list
 egyxos-redteam skills list
+egyxos-redteam skills curriculum
 egyxos-redteam ai ask bug-bounty-triage "Review these authorized observations"
 egyxos-redteam findings list
 egyxos-redteam report generate
@@ -197,6 +198,24 @@ egyxos-redteam skills list
 ```
 
 Skills do not grant authorization and do not bypass scope or approval controls. They are designed to help analyze evidence and plan low-impact, permitted testing; they do not autonomously exploit targets.
+
+## Security training curriculum
+
+EGYXOS does not fine-tune or retrain Gemini locally. Instead, each AI request receives a structured authorized-security curriculum covering:
+
+- authorization and scope enforcement
+- passive reconnaissance
+- web and API analysis
+- safe BOLA/IDOR validation with owned test accounts
+- evidence and confidence handling
+- severity classification
+- remediation and report writing
+
+View the curriculum:
+
+```bash
+egyxos-redteam skills curriculum
+```
 
 ## Tools
 
