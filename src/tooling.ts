@@ -9,6 +9,7 @@ export const toolCatalog: ToolDefinition[] = [
   { name: "sqlmap", category: "api", description: "SQL injection assessment", enabled: false, requiresApproval: true },
   { name: "nmap", category: "recon", description: "Port and service scanning", enabled: true, requiresApproval: true },
   { name: "nuclei", category: "web", description: "Vulnerability templated checks", enabled: true, requiresApproval: true },
+  { name: "subfinder", category: "recon", description: "Passive subdomain discovery", enabled: true, requiresApproval: false },
   { name: "curl", category: "web", description: "HTTP request generation", enabled: true, requiresApproval: false },
   { name: "dig", category: "recon", description: "DNS queries", enabled: true, requiresApproval: false },
   { name: "whois", category: "recon", description: "Ownership and domain lookup", enabled: true, requiresApproval: false },
@@ -21,19 +22,21 @@ export function getToolRegistry(): ToolDefinition[] {
 export function buildToolCommand(toolName: string, target: string, mode = "active"): string {
   switch (toolName) {
     case "httpx":
-      return `httpx -u "${target}" -silent -title`; 
+      return `httpx -u "${target}" -silent -title`;
     case "katana":
-      return `katana -u "${target}" -list`;
+      return `katana -u "${target}" -silent`;
     case "ffuf":
-      return `ffuf -u "${target}/FUZZ" -w /tmp/paths.txt`;
+      return `ffuf -u "${target}/FUZZ" -w /tmp/paths.txt -s`;
     case "sqlmap":
       return `sqlmap -u "${target}" --batch --smart`;
     case "nmap":
-      return `nmap -sV "${target}"`;
+      return `nmap -sV -T3 "${target}"`;
     case "nuclei":
-      return `nuclei -u "${target}" -t cves/`;
+      return `nuclei -u "${target}" -v -severity medium,high,critical -jsonl`;
+    case "subfinder":
+      return `subfinder -d "${target}" -silent`;
     case "curl":
-      return `curl -L -I "${target}"`;
+      return `curl -sSIL "${target}"`;
     case "dig":
       return `dig +short "${target}"`;
     case "whois":

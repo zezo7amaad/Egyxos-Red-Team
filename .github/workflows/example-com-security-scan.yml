@@ -1,0 +1,85 @@
+name: Example.com Automated Subdomain & Nuclei Scan
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      target_domain:
+        description: "Authorized domain to enumerate and scan"
+        required: true
+        default: "example.com"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  security_scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Install ProjectDiscovery tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+          go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+
+      - name: Run subdomain enumeration and Nuclei scan
+        shell: bash
+        env:
+          TARGET_DOMAIN: ${{ inputs.target_domain || 'example.com' }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$TARGET_DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::Invalid target domain: $TARGET_DOMAIN"
+            exit 1
+          fi
+
+          mkdir -p scan_results
+          subdomains_file="scan_results/${TARGET_DOMAIN}_subdomains.txt"
+          nuclei_report="scan_results/${TARGET_DOMAIN}_nuclei_report.txt"
+
+          echo "::group::Updating Nuclei templates"
+          nuclei -update-templates
+          echo "::endgroup::"
+
+          echo "::group::Enumerating subdomains for ${TARGET_DOMAIN}"
+          subfinder -d "$TARGET_DOMAIN" -silent -o "$subdomains_file"
+          echo "::endgroup::"
+
+          if [[ ! -s "$subdomains_file" ]]; then
+            echo "No subdomains were found for ${TARGET_DOMAIN}."
+            exit 0
+          fi
+
+          echo "Found $(wc -l < "$subdomains_file" | tr -d ' ') subdomains."
+
+          echo "::group::Running Nuclei"
+          nuclei -l "$subdomains_file" \
+            -v \
+            -severity info,low,medium,high,critical \
+            -jsonl \
+            -o "$nuclei_report"
+          echo "::endgroup::"
+
+      - name: Upload scan artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-com-scan-reports
+          path: scan_results/
+          if-no-files-found: warn
+          retention-days: 14

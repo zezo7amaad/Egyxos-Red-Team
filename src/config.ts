@@ -7,6 +7,7 @@ export interface AppConfig {
   storagePath: string;
   requireApproval: boolean;
   provider: string;
+  model: string;
   tools: Record<string, boolean>;
 }
 
@@ -31,7 +32,8 @@ export function defaultConfig(storageRoot?: string): AppConfig {
     project: "default",
     storagePath: resolveStoragePath(storageRoot),
     requireApproval: true,
-    provider: "openai-compatible",
+    provider: "gemini",
+    model: "gemini-2.0-flash",
     tools: {
       httpx: true,
       katana: true,
@@ -39,6 +41,7 @@ export function defaultConfig(storageRoot?: string): AppConfig {
       sqlmap: false,
       nmap: true,
       nuclei: true,
+      subfinder: true,
       curl: true,
       dig: true,
       whois: true,
@@ -62,6 +65,7 @@ export function loadConfig(storageRoot?: string): AppConfig {
   return {
     ...defaultConfig(root),
     ...parsed,
+    model: parsed.model ?? defaultConfig(root).model,
     tools: {
       ...defaultConfig(root).tools,
       ...(parsed.tools ?? {}),
