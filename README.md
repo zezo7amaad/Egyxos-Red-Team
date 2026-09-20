@@ -307,6 +307,26 @@ egyxos-redteam ai scan bug-bounty-triage example.com --approve
 
 The workflow runs `subfinder`, `httpx`, and Nuclei with fixed timeouts and sends their output to the configured Gemini provider. Nuclei requires the explicit `--approve` flag. The resulting AI assessment is written to `~/.egyxos-redteam/reports/`.
 
+Before scanning, EGYXOS runs `nuclei -update-templates` so the approved scan uses the installed current template set. Template updates and scanning are bounded and require the same explicit `--approve` scan authorization.
+
+Nuclei has a bounded default timeout of 10 minutes because template loading and multi-host scans can take longer than discovery tools. Override it for the current shell when needed:
+
+```bash
+export EGYXOS_NUCLEI_TIMEOUT_MS=900000
+```
+
+Template updates use a separate 5-minute default timeout:
+
+```bash
+export EGYXOS_NUCLEI_TEMPLATE_TIMEOUT_MS=600000
+```
+
+Discovery tools use a 2-minute default timeout and can be adjusted with:
+
+```bash
+export EGYXOS_TOOL_TIMEOUT_MS=300000
+```
+
 This command does not perform exploitation, credential testing, data extraction, state-changing requests, or out-of-scope scanning. It requires written authorization and an accurate project scope.
 
 ### Tool name collision: `httpx`
