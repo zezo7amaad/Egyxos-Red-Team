@@ -17,6 +17,10 @@ function readTimeout(name: string, fallbackMs: number): number {
   return Number.isFinite(configured) && configured > 0 ? configured : fallbackMs;
 }
 
+function isEnabled(name: string): boolean {
+  return ["1", "true", "yes"].includes((process.env[name] ?? "").toLowerCase());
+}
+
 function isTimeoutError(error: Error): error is NodeJS.ErrnoException {
   return "code" in error && error.code === "ETIMEDOUT";
 }
@@ -140,16 +144,26 @@ export function runAuthorizedScan(
   fs.writeFileSync(tempFile, `${targets.join("\n")}\n`);
 
   try {
-    updateNucleiTemplates();
+    if (!isEnabled("EGYXOS_SKIP_NUCLEI_TEMPLATE_UPDATE")) {
+      updateNucleiTemplates();
+    }
     const httpx = runHttpx(tempFile);
-    const nuclei = runBinary("nuclei", [
+    const nucleiArgs = [
       "-l",
       tempFile,
-      "-v",
       "-severity",
-      "info,low,medium,high,critical",
+      process.env.EGYXOS_NUCLEI_SEVERITY || "info,low,medium,high,critical",
       "-jsonl",
-    ], readTimeout("EGYXOS_NUCLEI_TIMEOUT_MS", 600_000), "Nuclei");
+    ];
+    const concurrency = Number(process.env.EGYXOS_NUCLEI_CONCURRENCY);
+    if (Number.isInteger(concurrency) && concurrency > 0) {
+      nucleiArgs.push("-c", String(concurrency));
+    }
+    const rateLimit = Number(process.env.EGYXOS_NUCLEI_RATE_LIMIT);
+    if (Number.isInteger(rateLimit) && rateLimit > 0) {
+      nucleiArgs.push("-rl", String(rateLimit));
+    }
+    const nuclei = runBinary("nuclei", nucleiArgs, readTimeout("EGYXOS_NUCLEI_TIMEOUT_MS", 600_000), "Nuclei");
 
     return { target: host, subdomains, httpx, nuclei };
   } finally {

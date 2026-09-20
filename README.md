@@ -307,6 +307,18 @@ egyxos-redteam ai scan bug-bounty-triage example.com --approve
 
 The workflow runs `subfinder`, `httpx`, and Nuclei with fixed timeouts and sends their output to the configured Gemini provider. Nuclei requires the explicit `--approve` flag. The resulting AI assessment is written to `~/.egyxos-redteam/reports/`.
 Tool output is captured through temporary files and capped before AI analysis, so verbose Nuclei JSONL output does not exhaust the process buffer (`ENOBUFS`).
+For faster repeat scans, update templates separately and skip that step during each scan:
+
+```bash
+nuclei -update-templates
+export EGYXOS_SKIP_NUCLEI_TEMPLATE_UPDATE=1
+export EGYXOS_NUCLEI_SEVERITY=medium,high,critical
+export EGYXOS_NUCLEI_CONCURRENCY=50
+export EGYXOS_NUCLEI_RATE_LIMIT=150
+egyxos-redteam ai scan bug-bounty-triage example.com --approve
+```
+
+Only use higher concurrency or rate limits when the authorized target and your network can handle them. Remove `EGYXOS_SKIP_NUCLEI_TEMPLATE_UPDATE` or unset it when you want each scan to refresh templates.
 
 Before scanning, EGYXOS runs `nuclei -update-templates` so the approved scan uses the installed current template set. Template updates and scanning are bounded and require the same explicit `--approve` scan authorization.
 
