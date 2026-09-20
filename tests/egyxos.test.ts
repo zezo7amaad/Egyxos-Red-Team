@@ -10,6 +10,7 @@ import { runDoctor } from "../src/doctor.js";
 import { buildToolCommand, getToolRegistry } from "../src/tooling.js";
 import { DatabaseService } from "../src/database.js";
 import { buildSkillPrompt, getSecuritySkills } from "../src/skills.js";
+import { renderSecurityCurriculum } from "../src/training.js";
 
 const originalStorage = process.env.EGYXOS_STORAGE;
 
@@ -84,6 +85,8 @@ describe("EGYXOS Red Team core behaviors", () => {
     expect(skills.some((skill) => skill.name === "bug-bounty-triage")).toBe(true);
     expect(prompt).toContain("configured scope");
     expect(prompt).toContain("Do not perform or recommend destructive actions");
+    expect(prompt).toContain("authorization-and-scope");
+    expect(renderSecurityCurriculum()).toContain("validation-and-evidence");
   });
 
   it("stores event logs in SQLite", async () => {

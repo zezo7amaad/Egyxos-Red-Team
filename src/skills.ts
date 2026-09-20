@@ -1,4 +1,5 @@
 export type SkillPermission = "passive" | "approval_required" | "reporting";
+import { renderSecurityCurriculum } from "./training.js";
 
 export interface SecuritySkill {
   name: string;
@@ -102,6 +103,9 @@ export function buildSkillPrompt(skillName: string, userRequest: string): string
     `Required tools: ${skill.requiredTools.join(", ") || "none"}`,
     "Safety rules:",
     ...skill.instructions.map((instruction) => `- ${instruction}`),
+    "",
+    "Authorized security curriculum:",
+    renderSecurityCurriculum(),
     "",
     `Operator request: ${userRequest}`,
   ].join("\n");
