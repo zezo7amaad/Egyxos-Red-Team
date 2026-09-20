@@ -12,15 +12,32 @@ export interface ScanOutput {
   nuclei: string;
 }
 
-function runBinary(binary: string, args: string[]): string {
+function readTimeout(name: string, fallbackMs: number): number {
+  const configured = Number(process.env[name]);
+  return Number.isFinite(configured) && configured > 0 ? configured : fallbackMs;
+}
+
+function isTimeoutError(error: Error): error is NodeJS.ErrnoException {
+  return "code" in error && error.code === "ETIMEDOUT";
+}
+
+function runBinary(binary: string, args: string[], timeoutMs: number, label = binary): string {
   const result = spawnSync(binary, args, {
     encoding: "utf8",
-    timeout: 120_000,
+    timeout: timeoutMs,
     windowsHide: true,
     maxBuffer: 2 * 1024 * 1024,
   });
 
   if (result.error) {
+    if (isTimeoutError(result.error)) {
+      throw new Error(
+        `${label} exceeded its ${Math.round(timeoutMs / 1000)} second timeout. `
+        + `Increase ${binary === "nuclei" ? "EGYXOS_NUCLEI_TIMEOUT_MS" : "EGYXOS_TOOL_TIMEOUT_MS"} `
+        + "or reduce the authorized target set.",
+      );
+    }
+
     throw new Error(`${binary} could not run: ${result.error.message}`);
   }
 
@@ -33,14 +50,19 @@ function runBinary(binary: string, args: string[]): string {
 }
 
 function runHttpx(targetFile: string): string {
+  const timeoutMs = readTimeout("EGYXOS_TOOL_TIMEOUT_MS", 120_000);
   const result = spawnSync("httpx", ["-l", targetFile, "-silent", "-title"], {
     encoding: "utf8",
-    timeout: 120_000,
+    timeout: timeoutMs,
     windowsHide: true,
     maxBuffer: 2 * 1024 * 1024,
   });
 
   if (result.error) {
+    if (isTimeoutError(result.error)) {
+      throw new Error(`ProjectDiscovery httpx exceeded its ${Math.round(timeoutMs / 1000)} second timeout. Increase EGYXOS_TOOL_TIMEOUT_MS or reduce the authorized target set.`);
+    }
+
     throw new Error(`ProjectDiscovery httpx could not run: ${result.error.message}`);
   }
 
@@ -59,6 +81,15 @@ function runHttpx(targetFile: string): string {
   return result.stdout.trim();
 }
 
+function updateNucleiTemplates(): string {
+  return runBinary(
+    "nuclei",
+    ["-update-templates"],
+    readTimeout("EGYXOS_NUCLEI_TEMPLATE_TIMEOUT_MS", 300_000),
+    "Nuclei template update",
+  );
+}
+
 export function runAuthorizedScan(
   target: string,
   options: { projectName?: string; storageRoot?: string; approveActive: boolean },
@@ -74,7 +105,7 @@ export function runAuthorizedScan(
   }
 
   const host = validation.host ?? target;
-  const subdomains = runBinary("subfinder", ["-d", host, "-silent"]);
+  const subdomains = runBinary("subfinder", ["-d", host, "-silent"], readTimeout("EGYXOS_TOOL_TIMEOUT_MS", 120_000));
   const targets = subdomains.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
   if (!targets.includes(host)) {
     targets.unshift(host);
@@ -84,6 +115,7 @@ export function runAuthorizedScan(
   fs.writeFileSync(tempFile, `${targets.join("\n")}\n`);
 
   try {
+    updateNucleiTemplates();
     const httpx = runHttpx(tempFile);
     const nuclei = runBinary("nuclei", [
       "-l",
@@ -92,7 +124,7 @@ export function runAuthorizedScan(
       "-severity",
       "info,low,medium,high,critical",
       "-jsonl",
-    ]);
+    ], readTimeout("EGYXOS_NUCLEI_TIMEOUT_MS", 600_000), "Nuclei");
 
     return { target: host, subdomains, httpx, nuclei };
   } finally {
