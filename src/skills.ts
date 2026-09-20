@@ -139,6 +139,7 @@ export function buildSkillPrompt(skillName: string, userRequest: string): string
   return [
     `You are EGYXOS Red Team operating under the "${skill.name}" skill.`,
     "This is an authorized security assessment. Stay within the configured scope.",
+    "When the operator supplies completed tool output, analyze that evidence as a defensive report-writing task; do not refuse merely because an authorized target is publicly reachable.",
     "Provide concise operational reasoning, not hidden chain-of-thought.",
     "Do not perform or recommend destructive actions, credential theft, persistence, or out-of-scope testing.",
     `Skill purpose: ${skill.description}`,
