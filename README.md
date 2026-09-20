@@ -116,6 +116,7 @@ egyxos-redteam tools list
 egyxos-redteam skills list
 egyxos-redteam skills curriculum
 egyxos-redteam ai ask bug-bounty-triage "Review these authorized observations"
+egyxos-redteam ai scan bug-bounty-triage example.com --approve
 egyxos-redteam findings list
 egyxos-redteam report generate
 egyxos-redteam doctor
@@ -201,6 +202,19 @@ egyxos-redteam skills list
 ```
 
 Skills do not grant authorization and do not bypass scope or approval controls. They are designed to help analyze evidence and plan low-impact, permitted testing; they do not autonomously exploit targets.
+
+## AI scan and reporting
+
+Run a bounded scan against a target already present in the active project scope:
+
+```bash
+egyxos-redteam scope add example.com
+egyxos-redteam ai scan bug-bounty-triage example.com --approve
+```
+
+The workflow runs `subfinder`, `httpx`, and Nuclei with fixed timeouts and sends their output to the configured Gemini provider. Nuclei requires the explicit `--approve` flag. The resulting AI assessment is written to `~/.egyxos-redteam/reports/`.
+
+This command does not perform exploitation, credential testing, data extraction, state-changing requests, or out-of-scope scanning. It requires written authorization and an accurate project scope.
 
 ## Security training curriculum
 
