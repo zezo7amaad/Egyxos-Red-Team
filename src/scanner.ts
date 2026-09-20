@@ -32,6 +32,33 @@ function runBinary(binary: string, args: string[]): string {
   return result.stdout.trim();
 }
 
+function runHttpx(targetFile: string): string {
+  const result = spawnSync("httpx", ["-l", targetFile, "-silent", "-title"], {
+    encoding: "utf8",
+    timeout: 120_000,
+    windowsHide: true,
+    maxBuffer: 2 * 1024 * 1024,
+  });
+
+  if (result.error) {
+    throw new Error(`ProjectDiscovery httpx could not run: ${result.error.message}`);
+  }
+
+  if (result.status !== 0) {
+    const detail = (result.stderr || result.stdout || "").trim().slice(0, 1_000);
+    if (detail.includes("No such option: -l") || detail.includes("Usage: httpx [OPTIONS] URL")) {
+      throw new Error(
+        "The installed 'httpx' is the Python HTTP client CLI, not ProjectDiscovery httpx. "
+        + "Install ProjectDiscovery httpx and ensure its binary appears first on PATH.",
+      );
+    }
+
+    throw new Error(`ProjectDiscovery httpx exited with status ${result.status}${detail ? `: ${detail}` : "."}`);
+  }
+
+  return result.stdout.trim();
+}
+
 export function runAuthorizedScan(
   target: string,
   options: { projectName?: string; storageRoot?: string; approveActive: boolean },
@@ -57,7 +84,7 @@ export function runAuthorizedScan(
   fs.writeFileSync(tempFile, `${targets.join("\n")}\n`);
 
   try {
-    const httpx = runBinary("httpx", ["-l", tempFile, "-silent", "-title"]);
+    const httpx = runHttpx(tempFile);
     const nuclei = runBinary("nuclei", [
       "-l",
       tempFile,
