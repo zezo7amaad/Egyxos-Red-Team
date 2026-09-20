@@ -13,8 +13,10 @@ import { runDoctor } from "./doctor.js";
 import { validateTarget } from "./scope.js";
 import { loadConfig, resolveStoragePath } from "./config.js";
 import { askGemini } from "./ai.js";
-import { getSecuritySkills } from "./skills.js";
+import { buildSkillPrompt, getSecuritySkills } from "./skills.js";
 import { renderSecurityCurriculum } from "./training.js";
+import { runAuthorizedScan } from "./scanner.js";
+import { GeminiProvider } from "./ai.js";
 
 function printHeader(): void {
   console.log("╔══════════════════════════════════════════════╗");
@@ -43,6 +45,7 @@ function printHelp(): void {
   console.log("  skills list");
   console.log("  skills curriculum");
   console.log("  ai ask <skill> <request>");
+  console.log("  ai scan <skill> <target> --approve");
   console.log("  doctor");
   console.log("  --help");
   console.log("  --dry-run");
@@ -180,6 +183,11 @@ function handleSkills(args: string[] = []): void {
 
 async function handleAI(args: string[]): Promise<void> {
   const [action, skill, ...requestParts] = args;
+  if (action === "scan") {
+    await handleAIScan(skill, requestParts);
+    return;
+  }
+
   if (action !== "ask" || !skill || requestParts.length === 0) {
     printHelp();
     return;
@@ -190,6 +198,41 @@ async function handleAI(args: string[]): Promise<void> {
     console.log(response.text);
   } catch (error) {
     console.error(error instanceof Error ? error.message : "AI request failed.");
+    process.exitCode = 1;
+  }
+}
+
+async function handleAIScan(skill: string | undefined, args: string[]): Promise<void> {
+  const target = args.find((arg) => !arg.startsWith("--"));
+  const approved = args.includes("--approve");
+  if (!skill || !target) {
+    printHelp();
+    return;
+  }
+
+  try {
+    console.log("Running authorized scan. Passive discovery and approved Nuclei checks only.");
+    const output = runAuthorizedScan(target, { approveActive: approved });
+    const prompt = buildSkillPrompt(
+      skill,
+      [
+        `Target: ${output.target}`,
+        "The following output came from tools run against the configured authorized scope.",
+        "Analyze it conservatively. Identify only evidence-backed vulnerabilities and label unconfirmed observations as potential.",
+        `Subfinder output:\n${output.subdomains.slice(0, 20_000)}`,
+        `HTTPX output:\n${output.httpx.slice(0, 20_000)}`,
+        `Nuclei JSONL output:\n${output.nuclei.slice(0, 50_000)}`,
+        "Produce a report with summary, findings, confidence, evidence, impact, and remediation.",
+      ].join("\n\n"),
+    );
+    const response = await new GeminiProvider().generate({ prompt });
+    const reportDir = path.join(resolveStoragePath(), "reports");
+    fs.mkdirSync(reportDir, { recursive: true });
+    const reportPath = path.join(reportDir, `ai-scan-${Date.now()}.md`);
+    fs.writeFileSync(reportPath, `# EGYXOS AI Security Assessment\n\nTarget: ${output.target}\n\n${response.text}\n`);
+    console.log(`AI assessment written to ${reportPath}`);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Authorized scan failed.");
     process.exitCode = 1;
   }
 }
