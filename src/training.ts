@@ -46,6 +46,26 @@ export const authorizedSecurityCurriculum: TrainingModule[] = [
     ],
   },
   {
+    name: "input-validation",
+    objective: "Assess XSS and SQL injection hypotheses with harmless inputs and explicit approval.",
+    practices: [
+      "For XSS, use inert markers first and verify reflection context, encoding, storage, and execution separately.",
+      "For SQL injection, compare controlled responses and errors without extracting data or changing state.",
+      "Require approval before active payloads, automated scanners, or timing-based tests.",
+      "Stop immediately if testing could affect real users, records, availability, or data integrity.",
+    ],
+  },
+  {
+    name: "dns-and-service-ownership",
+    objective: "Assess possible subdomain takeover conditions without claiming third-party infrastructure.",
+    practices: [
+      "Resolve the complete CNAME chain and record provider-specific HTTP error evidence.",
+      "Verify that the referenced resource is unassigned before escalating the hypothesis.",
+      "Do not create or claim provider resources, change DNS, or serve content without explicit written approval.",
+      "Distinguish dangling DNS, provider misconfiguration, and confirmed takeover capability.",
+    ],
+  },
+  {
     name: "reporting-and-remediation",
     objective: "Produce clear, actionable reports for authorized programs.",
     practices: [

@@ -83,6 +83,9 @@ describe("EGYXOS Red Team core behaviors", () => {
     const skills = getSecuritySkills();
     const prompt = buildSkillPrompt("bug-bounty-triage", "Review these authorized observations.");
     expect(skills.some((skill) => skill.name === "bug-bounty-triage")).toBe(true);
+    expect(skills.some((skill) => skill.name === "xss-review")).toBe(true);
+    expect(skills.some((skill) => skill.name === "sqli-review")).toBe(true);
+    expect(skills.some((skill) => skill.name === "subdomain-takeover-review")).toBe(true);
     expect(prompt).toContain("configured scope");
     expect(prompt).toContain("Do not perform or recommend destructive actions");
     expect(prompt).toContain("authorization-and-scope");
