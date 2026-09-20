@@ -17,6 +17,8 @@ export interface AIProvider {
   generate(request: AIRequest): Promise<AIResponse>;
 }
 
+const transientGeminiStatuses = new Set([429, 500, 502, 503, 504]);
+
 interface GeminiResponse {
   candidates?: Array<{
     content?: {
@@ -30,7 +32,7 @@ export class GeminiProvider implements AIProvider {
   private readonly apiKey: string;
   private readonly defaultModel: string;
 
-  constructor(apiKey = process.env.GEMINI_API_KEY, defaultModel = process.env.GEMINI_MODEL ?? "gemini-2.0-flash") {
+  constructor(apiKey = process.env.GEMINI_API_KEY, defaultModel = process.env.GEMINI_MODEL ?? "gemini-3.6-flash") {
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY is required to use the Gemini provider.");
     }
@@ -42,20 +44,42 @@ export class GeminiProvider implements AIProvider {
   async generate(request: AIRequest): Promise<AIResponse> {
     const model = request.model ?? this.defaultModel;
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: request.prompt }] }],
-        generationConfig: {
-          temperature: request.temperature ?? 0.2,
-        },
-      }),
+    const requestBody = JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: request.prompt }] }],
+      generationConfig: {
+        temperature: request.temperature ?? 0.2,
+      },
     });
+    let response: Response | undefined;
+    let lastDetail = "";
 
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`Gemini request failed (${response.status}): ${detail.slice(0, 500)}`);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: requestBody,
+      });
+
+      if (response.ok || !transientGeminiStatuses.has(response.status)) {
+        break;
+      }
+
+      lastDetail = await response.text();
+      if (attempt === 2) {
+        break;
+      }
+
+      const retryAfter = Number(response.headers.get("retry-after"));
+      const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 10_000)
+        : 500 * 2 ** attempt;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    if (!response || !response.ok) {
+      const detail = lastDetail || (response ? await response.text() : "No response received.");
+      const status = response?.status ?? "unknown";
+      throw new Error(`Gemini request failed (${status}) after retries: ${detail.slice(0, 500)}`);
     }
 
     const payload = (await response.json()) as GeminiResponse;

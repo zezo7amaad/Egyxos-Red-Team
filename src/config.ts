@@ -33,7 +33,7 @@ export function defaultConfig(storageRoot?: string): AppConfig {
     storagePath: resolveStoragePath(storageRoot),
     requireApproval: true,
     provider: "gemini",
-    model: "gemini-2.0-flash",
+    model: "gemini-3.6-flash",
     tools: {
       httpx: true,
       katana: true,
@@ -62,16 +62,22 @@ export function loadConfig(storageRoot?: string): AppConfig {
 
   const raw = fs.readFileSync(configPath, "utf8");
   const parsed = JSON.parse(raw) as Partial<AppConfig>;
-  return {
+  const merged: AppConfig = {
     ...defaultConfig(root),
     ...parsed,
-    model: parsed.model ?? defaultConfig(root).model,
+    model: parsed.model === "gemini-2.0-flash" ? defaultConfig(root).model : parsed.model ?? defaultConfig(root).model,
     tools: {
       ...defaultConfig(root).tools,
       ...(parsed.tools ?? {}),
     },
     storagePath: root,
   };
+
+  if (parsed.model === "gemini-2.0-flash") {
+    fs.writeFileSync(configPath, JSON.stringify(merged, null, 2));
+  }
+
+  return merged;
 }
 
 export function saveConfig(config: AppConfig, storageRoot?: string): AppConfig {
