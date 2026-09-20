@@ -216,6 +216,17 @@ The workflow runs `subfinder`, `httpx`, and Nuclei with fixed timeouts and sends
 
 This command does not perform exploitation, credential testing, data extraction, state-changing requests, or out-of-scope scanning. It requires written authorization and an accurate project scope.
 
+### Tool name collision: `httpx`
+
+EGYXOS requires ProjectDiscovery's `httpx` binary. Python's `httpx` package can also install a command named `httpx`, but it does not support ProjectDiscovery flags such as `-l`, `-silent`, or `-title`. If a scan reports that `httpx` has no `-l` option, install ProjectDiscovery httpx and ensure its binary appears first on PATH:
+
+```bash
+command -v httpx
+httpx -version
+```
+
+The output should identify ProjectDiscovery httpx. EGYXOS detects this collision and reports a direct remediation instead of passing through the raw CLI usage error.
+
 ## Security training curriculum
 
 EGYXOS does not fine-tune or retrain Gemini locally. Instead, each AI request receives a structured authorized-security curriculum covering:

@@ -11,6 +11,7 @@ import { buildToolCommand, getToolRegistry } from "../src/tooling.js";
 import { DatabaseService } from "../src/database.js";
 import { buildSkillPrompt, getSecuritySkills } from "../src/skills.js";
 import { renderSecurityCurriculum } from "../src/training.js";
+import { runAuthorizedScan } from "../src/scanner.js";
 
 const originalStorage = process.env.EGYXOS_STORAGE;
 
@@ -100,6 +101,10 @@ describe("EGYXOS Red Team core behaviors", () => {
     expect(events.some((event) => event.event_name === "tool.started")).toBe(true);
     expect(events[0].payload).toContain("[redacted]");
     await db.close();
+  });
+
+  it("rejects an out-of-scope scan before launching tools", () => {
+    expect(() => runAuthorizedScan("outside.example.net", { approveActive: true })).toThrow(/outside the (active|configured) scope/i);
   });
 });
 
