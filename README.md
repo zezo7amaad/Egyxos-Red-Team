@@ -182,6 +182,99 @@ The provider sends only the prompt supplied to the command. Do not paste secrets
 
 Gemini availability errors such as HTTP `503` or rate limits are retried up to two times with a short backoff. If the provider remains unavailable, wait and run the command again rather than increasing scan activity.
 
+## AI command reference
+
+Configure Gemini in the current shell before using AI commands:
+
+```bash
+export GEMINI_API_KEY="YOUR_REPLACEMENT_KEY"
+export GEMINI_MODEL="gemini-3.6-flash"
+```
+
+Check the provider configuration:
+
+```bash
+egyxos-redteam config show
+egyxos-redteam doctor
+```
+
+List the available AI security skills:
+
+```bash
+egyxos-redteam skills list
+```
+
+Display the authorized-security curriculum injected into skill prompts:
+
+```bash
+egyxos-redteam skills curriculum
+```
+
+Ask Gemini to analyze supplied, sanitized evidence:
+
+```bash
+egyxos-redteam ai ask bug-bounty-triage "Analyze this authorized evidence: two tester-controlled accounts were used in staging.example.test. Account A received Account B's synthetic profile record. Credentials and tokens were redacted. Classify the observation, confidence, impact, safe validation, and remediation."
+```
+
+Review web exposure evidence:
+
+```bash
+egyxos-redteam ai ask web-exposure-review "Review these authorized read-only response headers from staging.example.test and identify missing security controls without claiming exploitability."
+```
+
+Review API authorization evidence:
+
+```bash
+egyxos-redteam ai ask api-review "Analyze this authorized API observation from staging.example.test for access-control weaknesses using only tester-controlled records."
+```
+
+Review XSS evidence:
+
+```bash
+egyxos-redteam ai ask xss-review "Analyze this authorized input/output evidence. A harmless marker was reflected in an approved staging test account. Determine the output context, encoding, confidence, and safe next step."
+```
+
+Review SQL injection evidence:
+
+```bash
+egyxos-redteam ai ask sqli-review "Analyze this authorized SQL input evidence from a staging test record. Compare the sanitized baseline and error response, identify what is proven, and recommend low-impact validation."
+```
+
+Review possible subdomain takeover evidence:
+
+```bash
+egyxos-redteam ai ask subdomain-takeover-review "Analyze this authorized DNS evidence. A scoped test subdomain has a CNAME pointing to an unassigned provider resource and returns a provider-specific error. Treat takeover as unconfirmed and recommend safe verification."
+```
+
+Draft a report from validated evidence:
+
+```bash
+egyxos-redteam ai ask finding-report-writer "Draft an evidence-backed report from this authorized, validated observation. Include title, affected asset, severity, confidence, reproduction, impact, evidence, and remediation."
+```
+
+Run the bounded tool-to-AI scan workflow:
+
+```bash
+egyxos-redteam project open authorized-lab
+egyxos-redteam scope add example.com
+egyxos-redteam scope show
+egyxos-redteam ai scan bug-bounty-triage example.com --approve
+```
+
+The scan pipeline is:
+
+```text
+scope validation -> subfinder -> httpx -> approved Nuclei -> Gemini analysis -> Markdown report
+```
+
+Reports are saved under:
+
+```text
+~/.egyxos-redteam/reports/
+```
+
+The `--approve` flag is required because Nuclei performs active security checks. AI commands do not authorize a target, bypass scope, access real users' data, extract credentials, or perform destructive testing. Use only written-authorized targets and sanitized evidence.
+
 ## Bug bounty skills
 
 Built-in skills provide constrained operating guidance for authorized programs:
