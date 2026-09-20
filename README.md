@@ -189,6 +189,9 @@ Built-in skills provide constrained operating guidance for authorized programs:
 - `passive-asset-discovery` - organize approved subdomain and service discovery
 - `web-exposure-review` - review headers, exposure, and error behavior
 - `api-review` - analyze authorized API documentation and responses
+- `xss-review` - review authorized input/output behavior for XSS hypotheses
+- `sqli-review` - review authorized input/error behavior for SQL injection hypotheses
+- `subdomain-takeover-review` - review authorized DNS and provider evidence for dangling services
 - `finding-report-writer` - draft evidence-backed vulnerability reports
 
 List skills with:
@@ -207,6 +210,8 @@ EGYXOS does not fine-tune or retrain Gemini locally. Instead, each AI request re
 - passive reconnaissance
 - web and API analysis
 - safe BOLA/IDOR validation with owned test accounts
+- controlled XSS and SQL injection review
+- passive subdomain takeover analysis without claiming third-party resources
 - evidence and confidence handling
 - severity classification
 - remediation and report writing
