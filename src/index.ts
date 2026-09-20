@@ -12,6 +12,8 @@ import { generateReport } from "./reporting.js";
 import { runDoctor } from "./doctor.js";
 import { validateTarget } from "./scope.js";
 import { loadConfig, resolveStoragePath } from "./config.js";
+import { askGemini } from "./ai.js";
+import { getSecuritySkills } from "./skills.js";
 
 function printHeader(): void {
   console.log("╔══════════════════════════════════════════════╗");
@@ -37,6 +39,8 @@ function printHelp(): void {
   console.log("  findings list");
   console.log("  report generate [markdown|html|json]");
   console.log("  tools list");
+  console.log("  skills list");
+  console.log("  ai ask <skill> <request>");
   console.log("  doctor");
   console.log("  --help");
   console.log("  --dry-run");
@@ -161,6 +165,28 @@ function handleTools(): void {
   }
 }
 
+function handleSkills(): void {
+  for (const skill of getSecuritySkills()) {
+    console.log(`${skill.name} :: ${skill.description} :: ${skill.permissions.join(", ")}`);
+  }
+}
+
+async function handleAI(args: string[]): Promise<void> {
+  const [action, skill, ...requestParts] = args;
+  if (action !== "ask" || !skill || requestParts.length === 0) {
+    printHelp();
+    return;
+  }
+
+  try {
+    const response = await askGemini(skill, requestParts.join(" "));
+    console.log(response.text);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "AI request failed.");
+    process.exitCode = 1;
+  }
+}
+
 function handleDoctor(): void {
   const result = runDoctor();
   console.log("EGYXOS Red Team Doctor");
@@ -244,6 +270,12 @@ function main(): void {
       break;
     case "tools":
       handleTools();
+      break;
+    case "skills":
+      handleSkills();
+      break;
+    case "ai":
+      void handleAI(rest);
       break;
     case "doctor":
       handleDoctor();

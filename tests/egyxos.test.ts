@@ -7,8 +7,9 @@ import { addScope, createProject, listProjects } from "../src/project.js";
 import { renderJsonReport } from "../src/reporting.js";
 import { validateTarget } from "../src/scope.js";
 import { runDoctor } from "../src/doctor.js";
-import { getToolRegistry } from "../src/tooling.js";
+import { buildToolCommand, getToolRegistry } from "../src/tooling.js";
 import { DatabaseService } from "../src/database.js";
+import { buildSkillPrompt, getSecuritySkills } from "../src/skills.js";
 
 const originalStorage = process.env.EGYXOS_STORAGE;
 
@@ -60,6 +61,14 @@ describe("EGYXOS Red Team core behaviors", () => {
     ]);
 
     expect(tools.some((tool) => tool.name === "httpx")).toBe(true);
+    expect(tools.some((tool) => tool.name === "nuclei")).toBe(true);
+    expect(tools.some((tool) => tool.name === "subfinder")).toBe(true);
+    expect(buildToolCommand("subfinder", "example.com")).toContain("subfinder -d");
+    expect(buildToolCommand("nuclei", "https://example.com")).toContain("nuclei -u");
+    expect(buildToolCommand("nuclei", "https://example.com")).toContain(" -v ");
+    expect(buildToolCommand("katana", "https://example.com")).toContain("katana -u");
+    expect(buildToolCommand("ffuf", "https://example.com")).toContain("ffuf -u");
+    expect(buildToolCommand("curl", "https://example.com")).toContain("curl -sSIL");
     expect(report).toContain("EGYXOS-001");
   });
 
@@ -67,6 +76,14 @@ describe("EGYXOS Red Team core behaviors", () => {
     const result = runDoctor();
     expect(result.checks.length).toBeGreaterThan(0);
     expect(result.status).toBeDefined();
+  });
+
+  it("provides safe bug bounty skills and scoped prompts", () => {
+    const skills = getSecuritySkills();
+    const prompt = buildSkillPrompt("bug-bounty-triage", "Review these authorized observations.");
+    expect(skills.some((skill) => skill.name === "bug-bounty-triage")).toBe(true);
+    expect(prompt).toContain("configured scope");
+    expect(prompt).toContain("Do not perform or recommend destructive actions");
   });
 
   it("stores event logs in SQLite", async () => {

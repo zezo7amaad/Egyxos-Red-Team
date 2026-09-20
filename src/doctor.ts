@@ -14,10 +14,18 @@ export function runDoctor(): { status: string; checks: DoctorCheck[] } {
     { name: "Runtime", ok: Boolean(process.version), details: `Node ${process.version}` },
     { name: "Database", ok: true, details: `Storage root: ${resolveStoragePath()}` },
     { name: "Configuration", ok: Boolean(config), details: `Project: ${config.project}` },
-    { name: "AI Provider", ok: Boolean(config.provider), details: `Provider: ${config.provider}` },
+    {
+      name: "AI Provider",
+      ok: config.provider !== "gemini" || Boolean(process.env.GEMINI_API_KEY),
+      details: config.provider === "gemini"
+        ? (process.env.GEMINI_API_KEY ? `Gemini model: ${config.model}` : "Missing GEMINI_API_KEY")
+        : `Provider: ${config.provider}`,
+    },
     { name: "httpx", ok: commandExists("httpx"), details: commandExists("httpx") ? "Installed" : "Missing: install httpx for recon" },
     { name: "katana", ok: commandExists("katana"), details: commandExists("katana") ? "Installed" : "Missing: install katana for crawling" },
     { name: "ffuf", ok: commandExists("ffuf"), details: commandExists("ffuf") ? "Installed" : "Missing: install ffuf for fuzzing" },
+    { name: "nuclei", ok: commandExists("nuclei"), details: commandExists("nuclei") ? "Installed" : "Missing: install nuclei for vulnerability checks" },
+    { name: "subfinder", ok: commandExists("subfinder"), details: commandExists("subfinder") ? "Installed" : "Missing: install subfinder for subdomain discovery" },
   ];
 
   const failing = checks.filter((check) => !check.ok).length;
