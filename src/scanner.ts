@@ -21,64 +21,89 @@ function isTimeoutError(error: Error): error is NodeJS.ErrnoException {
   return "code" in error && error.code === "ETIMEDOUT";
 }
 
-function runBinary(binary: string, args: string[], timeoutMs: number, label = binary): string {
-  const result = spawnSync(binary, args, {
-    encoding: "utf8",
-    timeout: timeoutMs,
-    windowsHide: true,
-    maxBuffer: 2 * 1024 * 1024,
-  });
+const MAX_CAPTURE_BYTES = 8 * 1024 * 1024;
 
-  if (result.error) {
-    if (isTimeoutError(result.error)) {
-      throw new Error(
-        `${label} exceeded its ${Math.round(timeoutMs / 1000)} second timeout. `
-        + `Increase ${binary === "nuclei" ? "EGYXOS_NUCLEI_TIMEOUT_MS" : "EGYXOS_TOOL_TIMEOUT_MS"} `
-        + "or reduce the authorized target set.",
-      );
+function readCapturedOutput(file: string): string {
+  const content = fs.readFileSync(file, "utf8");
+  return content.length > MAX_CAPTURE_BYTES
+    ? `${content.slice(0, MAX_CAPTURE_BYTES)}\n[output truncated]`
+    : content;
+}
+
+function runBinary(binary: string, args: string[], timeoutMs: number, label = binary): string {
+  return runCapturedBinary(binary, args, timeoutMs, label);
+}
+
+function runCapturedBinary(binary: string, args: string[], timeoutMs: number, label: string): string {
+  const outputBase = path.join(os.tmpdir(), `egyxos-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const stdoutFile = `${outputBase}.out`;
+  const stderrFile = `${outputBase}.err`;
+  const stdoutFd = fs.openSync(stdoutFile, "w");
+  const stderrFd = fs.openSync(stderrFile, "w");
+
+  try {
+    const result = spawnSync(binary, args, {
+      stdio: ["ignore", stdoutFd, stderrFd],
+      timeout: timeoutMs,
+      windowsHide: true,
+    });
+
+    fs.closeSync(stdoutFd);
+    fs.closeSync(stderrFd);
+
+    const stdout = readCapturedOutput(stdoutFile);
+    const stderr = readCapturedOutput(stderrFile);
+
+    if (result.error) {
+      if (isTimeoutError(result.error)) {
+        throw new Error(
+          `${label} exceeded its ${Math.round(timeoutMs / 1000)} second timeout. `
+          + `Increase ${binary === "nuclei" ? "EGYXOS_NUCLEI_TIMEOUT_MS" : "EGYXOS_TOOL_TIMEOUT_MS"} `
+          + "or reduce the authorized target set.",
+        );
+      }
+
+      throw new Error(`${binary} could not run: ${result.error.message}`);
     }
 
-    throw new Error(`${binary} could not run: ${result.error.message}`);
-  }
+    if (result.status !== 0) {
+      const detail = (stderr || stdout).trim().slice(0, 1_000);
+      throw new Error(`${binary} exited with status ${result.status}${detail ? `: ${detail}` : "."}`);
+    }
 
-  if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout || "").trim().slice(0, 1_000);
-    throw new Error(`${binary} exited with status ${result.status}${detail ? `: ${detail}` : "."}`);
+    return stdout.trim();
+  } finally {
+    try {
+      fs.closeSync(stdoutFd);
+    } catch {
+      // The descriptor was already closed after the process exited.
+    }
+    try {
+      fs.closeSync(stderrFd);
+    } catch {
+      // The descriptor was already closed after the process exited.
+    }
+    fs.rmSync(stdoutFile, { force: true });
+    fs.rmSync(stderrFile, { force: true });
   }
-
-  return result.stdout.trim();
 }
 
 function runHttpx(targetFile: string): string {
   const timeoutMs = readTimeout("EGYXOS_TOOL_TIMEOUT_MS", 120_000);
-  const result = spawnSync("httpx", ["-l", targetFile, "-silent", "-title"], {
-    encoding: "utf8",
-    timeout: timeoutMs,
-    windowsHide: true,
-    maxBuffer: 2 * 1024 * 1024,
-  });
-
-  if (result.error) {
-    if (isTimeoutError(result.error)) {
-      throw new Error(`ProjectDiscovery httpx exceeded its ${Math.round(timeoutMs / 1000)} second timeout. Increase EGYXOS_TOOL_TIMEOUT_MS or reduce the authorized target set.`);
+  try {
+    return runCapturedBinary("httpx", ["-l", targetFile, "-silent", "-title"], timeoutMs, "ProjectDiscovery httpx");
+  } catch (error) {
+    if (error instanceof Error && /exited with status/.test(error.message)) {
+      const detail = error.message;
+      if (detail.includes("No such option: -l") || detail.includes("Usage: httpx [OPTIONS] URL")) {
+        throw new Error(
+          "The installed 'httpx' is the Python HTTP client CLI, not ProjectDiscovery httpx. "
+          + "Install ProjectDiscovery httpx and ensure its binary appears first on PATH.",
+        );
+      }
     }
-
-    throw new Error(`ProjectDiscovery httpx could not run: ${result.error.message}`);
+    throw error;
   }
-
-  if (result.status !== 0) {
-    const detail = (result.stderr || result.stdout || "").trim().slice(0, 1_000);
-    if (detail.includes("No such option: -l") || detail.includes("Usage: httpx [OPTIONS] URL")) {
-      throw new Error(
-        "The installed 'httpx' is the Python HTTP client CLI, not ProjectDiscovery httpx. "
-        + "Install ProjectDiscovery httpx and ensure its binary appears first on PATH.",
-      );
-    }
-
-    throw new Error(`ProjectDiscovery httpx exited with status ${result.status}${detail ? `: ${detail}` : "."}`);
-  }
-
-  return result.stdout.trim();
 }
 
 function updateNucleiTemplates(): string {
