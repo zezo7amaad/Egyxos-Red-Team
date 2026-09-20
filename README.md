@@ -152,14 +152,20 @@ The initial AI provider is Google Gemini through the Gemini REST API. Credential
 
 ```bash
 export GEMINI_API_KEY="your-key"
-export GEMINI_MODEL="gemini-2.0-flash"
+export GEMINI_MODEL="gemini-3.6-flash"
+```
+
+If you previously configured the retired `gemini-2.0-flash` model, replace it in the current shell:
+
+```bash
+export GEMINI_MODEL="gemini-3.6-flash"
 ```
 
 PowerShell:
 
 ```powershell
 $env:GEMINI_API_KEY = "your-key"
-$env:GEMINI_MODEL = "gemini-2.0-flash"
+$env:GEMINI_MODEL = "gemini-3.6-flash"
 ```
 
 Ask Gemini to analyze authorized evidence with a named security skill:
@@ -171,6 +177,8 @@ egyxos-redteam ai ask finding-report-writer "Draft a report from this validated 
 ```
 
 The provider sends only the prompt supplied to the command. Do not paste secrets, credentials, private tokens, or unnecessary personal data into prompts.
+
+Gemini availability errors such as HTTP `503` or rate limits are retried up to two times with a short backoff. If the provider remains unavailable, wait and run the command again rather than increasing scan activity.
 
 ## Bug bounty skills
 
