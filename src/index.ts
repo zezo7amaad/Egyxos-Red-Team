@@ -217,12 +217,16 @@ async function handleAIScan(skill: string | undefined, args: string[]): Promise<
       skill,
       [
         `Target: ${output.target}`,
-        "The following output came from tools run against the configured authorized scope.",
-        "Analyze it conservatively. Identify only evidence-backed vulnerabilities and label unconfirmed observations as potential.",
+        "Authorization attestation: the operator has written authorization for this target, and the local scope validator allowed the scan.",
+        "You are not being asked to access, probe, exploit, or provide instructions for this target. The tool execution is complete.",
+        "Analyze only the supplied, already-collected tool output as a defensive triage and report-writing task.",
+        "Do not refuse solely because the target is a public or real-world domain. Instead, state when the supplied evidence is insufficient.",
+        "Identify only evidence-backed vulnerabilities and label unconfirmed observations as potential.",
+        "Do not invent endpoints, requests, responses, impact, or successful exploitation.",
         `Subfinder output:\n${output.subdomains.slice(0, 20_000)}`,
         `HTTPX output:\n${output.httpx.slice(0, 20_000)}`,
         `Nuclei JSONL output:\n${output.nuclei.slice(0, 50_000)}`,
-        "Produce a report with summary, findings, confidence, evidence, impact, and remediation.",
+        "Produce a concise report with summary, findings, confidence, evidence, impact, remediation, and an explicit no-findings statement when appropriate.",
       ].join("\n\n"),
     );
     const response = await new GeminiProvider().generate({ prompt });
