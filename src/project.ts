@@ -1,16 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getProjectRoot, loadConfig, resolveStoragePath, saveConfig } from "./config.js";
+import { assertSafeName, getProjectRoot, loadConfig, resolveStoragePath, safeChildPath, saveConfig } from "./config.js";
 import type { ProjectRecord } from "./types.js";
 
 export function createProject(name: string, storageRoot?: string): ProjectRecord {
-  const normalized = name.trim();
-  if (!normalized) {
-    throw new Error("Project name is required.");
-  }
+  const normalized = assertSafeName(name, "Project name");
 
   const root = resolveStoragePath(storageRoot);
-  const projectDir = path.join(root, "projects", normalized);
+  const projectDir = safeChildPath(path.join(root, "projects"), normalized, "Project name");
   if (fs.existsSync(projectDir)) {
     throw new Error(`Project '${normalized}' already exists.`);
   }
@@ -43,7 +40,7 @@ export function createProject(name: string, storageRoot?: string): ProjectRecord
 
 export function openProject(name: string, storageRoot?: string): ProjectRecord {
   const root = resolveStoragePath(storageRoot);
-  const projectDir = path.join(root, "projects", name);
+  const projectDir = getProjectRoot(name, root);
   if (!fs.existsSync(projectDir)) {
     throw new Error(`Project '${name}' does not exist.`);
   }

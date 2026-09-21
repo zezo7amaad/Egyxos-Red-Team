@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ensureProject, listProjects } from "./project.js";
-import { resolveStoragePath } from "./config.js";
+import { assertSafeName, resolveStoragePath, safeChildPath } from "./config.js";
 import type { SessionRecord } from "./types.js";
 
 export function startSession(projectName?: string, objective = "Assessment", target = "https://example.com", storageRoot?: string): SessionRecord {
@@ -40,7 +40,7 @@ export function listSessions(projectName?: string, storageRoot?: string): Sessio
 
 export function resumeSession(sessionId: string, projectName?: string, storageRoot?: string): SessionRecord {
   const project = ensureProject(projectName, storageRoot);
-  const sessionFile = path.join(project.path, "sessions", `${sessionId}.json`);
+  const sessionFile = safeChildPath(path.join(project.path, "sessions"), `${assertSafeName(sessionId, "Session ID")}.json`, "Session ID");
   if (!fs.existsSync(sessionFile)) {
     throw new Error(`Session '${sessionId}' not found.`);
   }

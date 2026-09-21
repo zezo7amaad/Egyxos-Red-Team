@@ -106,6 +106,11 @@ describe("EGYXOS Red Team core behaviors", () => {
   it("rejects an out-of-scope scan before launching tools", () => {
     expect(() => runAuthorizedScan("outside.example.net", { approveActive: true })).toThrow(/outside the (active|configured) scope/i);
   });
+
+  it("rejects path traversal in project names", () => {
+    expect(() => createProject("../outside")).toThrow(/invalid path characters/i);
+    expect(() => createProject("nested/project")).toThrow(/invalid path characters/i);
+  });
 });
 
 process.env.EGYXOS_STORAGE = originalStorage ?? "";

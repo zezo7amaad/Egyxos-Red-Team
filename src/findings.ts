@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ensureProject } from "./project.js";
+import { assertSafeName, safeChildPath } from "./config.js";
 import type { Finding } from "./types.js";
 
 export class FindingStore {
@@ -20,7 +21,7 @@ export class FindingStore {
   addFinding(finding: Finding): Finding {
     const projectDir = this.getProjectDir();
     const findingsDir = path.join(projectDir, "findings");
-    const filePath = path.join(findingsDir, `${finding.id}.json`);
+    const filePath = safeChildPath(findingsDir, `${assertSafeName(finding.id, "Finding ID")}.json`, "Finding ID");
     fs.writeFileSync(filePath, JSON.stringify(finding, null, 2));
     return finding;
   }
