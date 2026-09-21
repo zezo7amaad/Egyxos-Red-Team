@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/egyxos-logo.svg" alt="EGYXOS Red Team logo" width="120">
+</p>
+
 # EGYXOS Red Team
 
 EGYXOS Red Team is an AI-assisted security assessment platform designed for authorized security testing and evidence-driven review. It combines project management, human approval boundaries, scope enforcement, tool orchestration, findings tracking, and reporting in a single command-line experience.
