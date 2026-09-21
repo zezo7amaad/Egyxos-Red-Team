@@ -6,7 +6,13 @@ import type { SessionRecord } from "./types.js";
 
 export function startSession(projectName?: string, objective = "Assessment", target = "https://example.com", storageRoot?: string): SessionRecord {
   const project = ensureProject(projectName, storageRoot);
-  const sessionDir = path.join(project.path, "sessions");
+  const projectsRoot = path.resolve(resolveStoragePath(storageRoot), "projects");
+  const resolvedProjectPath = path.resolve(project.path);
+  const relProjectPath = path.relative(projectsRoot, resolvedProjectPath);
+  if (relProjectPath.startsWith("..") || path.isAbsolute(relProjectPath)) {
+    throw new Error("Invalid file path");
+  }
+  const sessionDir = path.join(resolvedProjectPath, "sessions");
   const id = `session-${Date.now().toString(36)}`;
   const record: SessionRecord = {
     id,
@@ -26,7 +32,13 @@ export function startSession(projectName?: string, objective = "Assessment", tar
 
 export function listSessions(projectName?: string, storageRoot?: string): SessionRecord[] {
   const project = ensureProject(projectName, storageRoot);
-  const sessionDir = path.join(project.path, "sessions");
+  const projectsRoot = path.resolve(resolveStoragePath(storageRoot), "projects");
+  const resolvedProjectPath = path.resolve(project.path);
+  const relProjectPath = path.relative(projectsRoot, resolvedProjectPath);
+  if (relProjectPath.startsWith("..") || path.isAbsolute(relProjectPath)) {
+    throw new Error("Invalid file path");
+  }
+  const sessionDir = path.join(resolvedProjectPath, "sessions");
   if (!fs.existsSync(sessionDir)) {
     return [];
   }
@@ -61,8 +73,14 @@ export function getDefaultProjectName(storageRoot?: string): string {
 
 export function getSessionCount(storageRoot?: string): number {
   const projects = listProjects(storageRoot);
+  const projectsRoot = path.resolve(resolveStoragePath(storageRoot), "projects");
   return projects.reduce((count, project) => {
-    const dir = path.join(project.path, "sessions");
+    const resolvedProjectPath = path.resolve(project.path);
+    const relProjectPath = path.relative(projectsRoot, resolvedProjectPath);
+    if (relProjectPath.startsWith("..") || path.isAbsolute(relProjectPath)) {
+      throw new Error("Invalid file path");
+    }
+    const dir = path.join(resolvedProjectPath, "sessions");
     return count + (fs.existsSync(dir) ? fs.readdirSync(dir).length : 0);
   }, 0);
 }

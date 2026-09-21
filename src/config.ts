@@ -26,7 +26,7 @@ export function resolveStoragePath(storageRoot?: string): string {
 export function assertSafeName(value: string, label: string): string {
   const normalized = value.trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(normalized) || normalized === "." || normalized === "..") {
-    throw new Error(`${label} contains invalid path characters.`);
+    throw new Error(`Invalid file path: ${label} contains invalid path characters.`);
   }
   return normalized;
 }

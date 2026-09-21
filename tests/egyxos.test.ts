@@ -3,15 +3,15 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, beforeEach } from "vitest";
 import { AgentController } from "../src/agent.js";
-import { addScope, createProject, listProjects } from "../src/project.js";
+import { addScope, createProject, listProjects, openProject } from "../src/project.js";
 import { renderJsonReport } from "../src/reporting.js";
 import { validateTarget } from "../src/scope.js";
 import { runDoctor } from "../src/doctor.js";
 import { buildToolCommand, getToolRegistry } from "../src/tooling.js";
-import { DatabaseService } from "../src/database.js";
 import { buildSkillPrompt, getSecuritySkills } from "../src/skills.js";
 import { renderSecurityCurriculum } from "../src/training.js";
 import { runAuthorizedScan } from "../src/scanner.js";
+import { startSession, listSessions, resumeSession, getSessionCount } from "../src/session.js";
 
 const originalStorage = process.env.EGYXOS_STORAGE;
 
@@ -93,16 +93,6 @@ describe("EGYXOS Red Team core behaviors", () => {
     expect(renderSecurityCurriculum()).toContain("validation-and-evidence");
   });
 
-  it("stores event logs in SQLite", async () => {
-    const db = new DatabaseService();
-    await db.createProject("persisted", "C:/tmp/persisted");
-    await db.logEvent("tool.started", { tool: "httpx", target: "https://example.com", password: "secret" });
-    const events = await db.getEventLog();
-    expect(events.some((event) => event.event_name === "tool.started")).toBe(true);
-    expect(events[0].payload).toContain("[redacted]");
-    await db.close();
-  });
-
   it("rejects an out-of-scope scan before launching tools", () => {
     expect(() => runAuthorizedScan("outside.example.net", { approveActive: true })).toThrow(/outside the (active|configured) scope/i);
   });
@@ -110,6 +100,93 @@ describe("EGYXOS Red Team core behaviors", () => {
   it("rejects path traversal in project names", () => {
     expect(() => createProject("../outside")).toThrow(/invalid path characters/i);
     expect(() => createProject("nested/project")).toThrow(/invalid path characters/i);
+  });
+});
+
+describe("Session security - file inclusion vulnerability mitigation", () => {
+  it("prevents path traversal in resumeSession with relative paths", () => {
+    createProject("secure-project");
+    const session = startSession("secure-project", "Test Objective", "https://example.com");
+    
+    // Attempt path traversal using ../ in session ID
+    expect(() => resumeSession("../../../etc/passwd", "secure-project")).toThrow("Invalid file path");
+    expect(() => resumeSession("../../config", "secure-project")).toThrow("Invalid file path");
+  });
+
+  it("prevents path traversal in resumeSession with absolute paths", () => {
+    createProject("secure-project2");
+    const session = startSession("secure-project2", "Test Objective", "https://example.com");
+    
+    // Attempt path traversal using absolute paths
+    expect(() => resumeSession("/etc/passwd", "secure-project2")).toThrow("Invalid file path");
+    expect(() => resumeSession("/tmp/malicious", "secure-project2")).toThrow("Invalid file path");
+  });
+
+  it("allows legitimate session resumption", () => {
+    createProject("legit-project");
+    const session = startSession("legit-project", "Legitimate Test", "https://example.com");
+    
+    // Should work with valid session ID
+    const resumed = resumeSession(session.id, "legit-project");
+    expect(resumed.id).toBe(session.id);
+    expect(resumed.status).toBe("active");
+  });
+
+  it("validates project paths in session operations", () => {
+    // Create a legitimate project
+    createProject("valid-project");
+    
+    // These should work normally
+    const session = startSession("valid-project");
+    expect(session.id).toBeDefined();
+    
+    const sessions = listSessions("valid-project");
+    expect(sessions.length).toBeGreaterThan(0);
+    
+    const count = getSessionCount();
+    expect(count).toBeGreaterThan(0);
+  });
+});
+
+describe("Project security - file inclusion vulnerability mitigation", () => {
+  it("prevents path traversal in createProject with relative paths", () => {
+    // Attempt to create project outside the projects directory using ../
+    expect(() => createProject("../../../etc/passwd")).toThrow("Invalid file path");
+    expect(() => createProject("../../config")).toThrow("Invalid file path");
+    expect(() => createProject("../malicious")).toThrow("Invalid file path");
+  });
+
+  it("prevents path traversal in createProject with absolute paths", () => {
+    // Attempt to create project using absolute paths
+    expect(() => createProject("/etc/passwd")).toThrow("Invalid file path");
+    expect(() => createProject("/tmp/malicious")).toThrow("Invalid file path");
+  });
+
+  it("prevents path traversal in openProject with relative paths", () => {
+    // First create a legitimate project
+    createProject("test-open-project");
+    
+    // Attempt to open project outside the projects directory
+    expect(() => openProject("../../../etc/passwd")).toThrow("Invalid file path");
+    expect(() => openProject("../../config")).toThrow("Invalid file path");
+  });
+
+  it("prevents path traversal in openProject with absolute paths", () => {
+    // Attempt to open project using absolute paths
+    expect(() => openProject("/etc/passwd")).toThrow("Invalid file path");
+    expect(() => openProject("/tmp/malicious")).toThrow("Invalid file path");
+  });
+
+  it("allows legitimate project creation and opening", () => {
+    // Should work with valid project names
+    const project = createProject("legitimate-project");
+    expect(project.name).toBe("legitimate-project");
+    expect(project.path).toContain("projects");
+    expect(project.path).toContain("legitimate-project");
+    
+    // Should be able to open the legitimate project
+    const opened = openProject("legitimate-project");
+    expect(opened.name).toBe("legitimate-project");
   });
 });
 

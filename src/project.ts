@@ -84,6 +84,14 @@ export function ensureProject(projectName?: string, storageRoot?: string): Proje
   const current = projectName ?? config.project;
   const projectRoot = getProjectRoot(current, storageRoot);
 
+  const root = resolveStoragePath(storageRoot);
+  const projectsBase = path.resolve(root, "projects");
+  const resolvedProjectRoot = path.resolve(projectRoot);
+  const relProjectRoot = path.relative(projectsBase, resolvedProjectRoot);
+  if (relProjectRoot.startsWith("..") || path.isAbsolute(relProjectRoot)) {
+    throw new Error("Invalid file path");
+  }
+
   if (!fs.existsSync(projectRoot)) {
     return createProject(current, storageRoot);
   }
