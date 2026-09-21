@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/egyxos_pyramid_sword_transparent.png" alt="EGYXOS Red Team logo" width="120">
+  <img src="assets/egyxos_pyramid_sword_transparent.png" alt="EGYXOS Red Team logo" width="320">
 </p>
 
 # EGYXOS Red Team
