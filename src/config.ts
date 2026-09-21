@@ -23,6 +23,24 @@ export function resolveStoragePath(storageRoot?: string): string {
   return path.join(os.homedir(), ".egyxos-redteam");
 }
 
+export function assertSafeName(value: string, label: string): string {
+  const normalized = value.trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(normalized) || normalized === "." || normalized === "..") {
+    throw new Error(`Invalid file path: ${label} contains invalid path characters.`);
+  }
+  return normalized;
+}
+
+export function safeChildPath(parent: string, child: string, label: string): string {
+  const safeChild = assertSafeName(child, label);
+  const parentPath = path.resolve(parent);
+  const childPath = path.resolve(parentPath, safeChild);
+  if (!childPath.startsWith(`${parentPath}${path.sep}`)) {
+    throw new Error(`${label} resolves outside the storage directory.`);
+  }
+  return childPath;
+}
+
 export function getConfigPath(storageRoot?: string): string {
   return path.join(resolveStoragePath(storageRoot), "config.json");
 }
@@ -91,5 +109,5 @@ export function saveConfig(config: AppConfig, storageRoot?: string): AppConfig {
 export function getProjectRoot(projectName?: string, storageRoot?: string): string {
   const root = resolveStoragePath(storageRoot);
   const name = projectName ?? loadConfig(root).project;
-  return path.join(root, "projects", name);
+  return safeChildPath(path.join(root, "projects"), name, "Project name");
 }
