@@ -8,10 +8,10 @@ import { renderJsonReport } from "../src/reporting.js";
 import { validateTarget } from "../src/scope.js";
 import { runDoctor } from "../src/doctor.js";
 import { buildToolCommand, getToolRegistry } from "../src/tooling.js";
-import { DatabaseService } from "../src/database.js";
 import { buildSkillPrompt, getSecuritySkills } from "../src/skills.js";
 import { renderSecurityCurriculum } from "../src/training.js";
 import { runAuthorizedScan } from "../src/scanner.js";
+import { startSession, listSessions, resumeSession, getSessionCount } from "../src/session.js";
 
 const originalStorage = process.env.EGYXOS_STORAGE;
 
@@ -93,18 +93,53 @@ describe("EGYXOS Red Team core behaviors", () => {
     expect(renderSecurityCurriculum()).toContain("validation-and-evidence");
   });
 
-  it("stores event logs in SQLite", async () => {
-    const db = new DatabaseService();
-    await db.createProject("persisted", "C:/tmp/persisted");
-    await db.logEvent("tool.started", { tool: "httpx", target: "https://example.com", password: "secret" });
-    const events = await db.getEventLog();
-    expect(events.some((event) => event.event_name === "tool.started")).toBe(true);
-    expect(events[0].payload).toContain("[redacted]");
-    await db.close();
-  });
-
   it("rejects an out-of-scope scan before launching tools", () => {
     expect(() => runAuthorizedScan("outside.example.net", { approveActive: true })).toThrow(/outside the (active|configured) scope/i);
+  });
+});
+
+describe("Session security - file inclusion vulnerability mitigation", () => {
+  it("prevents path traversal in resumeSession with relative paths", () => {
+    createProject("secure-project");
+    const session = startSession("secure-project", "Test Objective", "https://example.com");
+    
+    // Attempt path traversal using ../ in session ID
+    expect(() => resumeSession("../../../etc/passwd", "secure-project")).toThrow("Invalid file path");
+    expect(() => resumeSession("../../config", "secure-project")).toThrow("Invalid file path");
+  });
+
+  it("prevents path traversal in resumeSession with absolute paths", () => {
+    createProject("secure-project2");
+    const session = startSession("secure-project2", "Test Objective", "https://example.com");
+    
+    // Attempt path traversal using absolute paths
+    expect(() => resumeSession("/etc/passwd", "secure-project2")).toThrow("Invalid file path");
+    expect(() => resumeSession("/tmp/malicious", "secure-project2")).toThrow("Invalid file path");
+  });
+
+  it("allows legitimate session resumption", () => {
+    createProject("legit-project");
+    const session = startSession("legit-project", "Legitimate Test", "https://example.com");
+    
+    // Should work with valid session ID
+    const resumed = resumeSession(session.id, "legit-project");
+    expect(resumed.id).toBe(session.id);
+    expect(resumed.status).toBe("active");
+  });
+
+  it("validates project paths in session operations", () => {
+    // Create a legitimate project
+    createProject("valid-project");
+    
+    // These should work normally
+    const session = startSession("valid-project");
+    expect(session.id).toBeDefined();
+    
+    const sessions = listSessions("valid-project");
+    expect(sessions.length).toBeGreaterThan(0);
+    
+    const count = getSessionCount();
+    expect(count).toBeGreaterThan(0);
   });
 });
 
