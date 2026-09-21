@@ -10,7 +10,12 @@ export function createProject(name: string, storageRoot?: string): ProjectRecord
   }
 
   const root = resolveStoragePath(storageRoot);
-  const projectDir = path.join(root, "projects", normalized);
+  const projectsBase = path.resolve(root, "projects");
+  const projectDir = path.resolve(projectsBase, normalized);
+  const relProjectDir = path.relative(projectsBase, projectDir);
+  if (relProjectDir.startsWith("..") || path.isAbsolute(relProjectDir)) {
+    throw new Error("Invalid file path");
+  }
   if (fs.existsSync(projectDir)) {
     throw new Error(`Project '${normalized}' already exists.`);
   }
@@ -43,7 +48,12 @@ export function createProject(name: string, storageRoot?: string): ProjectRecord
 
 export function openProject(name: string, storageRoot?: string): ProjectRecord {
   const root = resolveStoragePath(storageRoot);
-  const projectDir = path.join(root, "projects", name);
+  const projectsBase = path.resolve(root, "projects");
+  const projectDir = path.resolve(projectsBase, name);
+  const relProjectDir = path.relative(projectsBase, projectDir);
+  if (relProjectDir.startsWith("..") || path.isAbsolute(relProjectDir)) {
+    throw new Error("Invalid file path");
+  }
   if (!fs.existsSync(projectDir)) {
     throw new Error(`Project '${name}' does not exist.`);
   }
@@ -86,6 +96,14 @@ export function ensureProject(projectName?: string, storageRoot?: string): Proje
   const config = loadConfig(storageRoot);
   const current = projectName ?? config.project;
   const projectRoot = getProjectRoot(current, storageRoot);
+
+  const root = resolveStoragePath(storageRoot);
+  const projectsBase = path.resolve(root, "projects");
+  const resolvedProjectRoot = path.resolve(projectRoot);
+  const relProjectRoot = path.relative(projectsBase, resolvedProjectRoot);
+  if (relProjectRoot.startsWith("..") || path.isAbsolute(relProjectRoot)) {
+    throw new Error("Invalid file path");
+  }
 
   if (!fs.existsSync(projectRoot)) {
     return createProject(current, storageRoot);
